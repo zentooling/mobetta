@@ -5,18 +5,22 @@ import pandas as pd
 import logging as l
 from concurrent.futures.thread import ThreadPoolExecutor
 
+from persist import PicklePersistor
+
 # initialize logging
 l.basicConfig(
     filename="output.log",
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=l.INFO,
 )
+
 log = l.getLogger("main")
 
 
-def index_df_to_analysis(idx_name):
-    file_name = idx_name + ".p"  # ex. sp500.p
-    df = utils.read_pickle(file_name)
+def index_df_to_analysis(idx_name,persistor):
+
+    df = persistor.load_index(idx_name)
+
     tickers = df.ticker.unique()
     results_list = []
     for ticker in tickers:
@@ -49,11 +53,9 @@ def index_df_to_analysis(idx_name):
     results_df = utils.new_analysis_df(results_list)
     results_df = results_df.sort_values(by=["rank"], ascending=False)
 
-    analysis_filename = "analysis-" + file_name
+    persistor.save_analysis(results_df,idx_name)
 
-    utils.pickle_file(results_df, analysis_filename)
-
-    create_portfolio(analysis_filename)
+    create_portfolio(idx_name,persistor)
 
     return results_df
 
@@ -81,12 +83,13 @@ def index_to_df_sync(index_name):
     return results_df
 
 
-def index_to_df(index_name):
+def index_to_df(index_name, persistor):
     log.info("retrieving data for index: " + index_name)
-    file_name = index_name + ".p"
+    # invoke an index specific retrieval function
     fxn = stockapi.index_ticker_fn(index_name)
     tickers = []
     if fxn is not None:
+        # invoke the function
         tickers = fxn()
     # tickers = ['AAPL']
     df_map_futures = {}
@@ -106,17 +109,18 @@ def index_to_df(index_name):
             continue
         df_list.append(ticker_df)
     # concat the list in one shot
-    results_df = utils.new_stock_df(df_list)
-    log.info("done.")
 
-    utils.pickle_file(results_df, file_name)
+    results_df = utils.new_stock_df(df_list)
+
+    persistor.save_index(results_df, index_name)
     return results_df
 
 
-def create_portfolio(analysis_filename):
-    portfolio_name = "portfolio-" + analysis_filename
-    the_rest_name = "not-portfolio-" + analysis_filename
-    df = utils.read_pickle(analysis_filename)
+def create_portfolio(index_name,persistor):
+    the_rest_name = "not-portfolio-analysis-" + index_name + ".p"
+
+
+    df = persistor.load_analysis(index_name)
     # keep the best 20% of the index - if a currently held stock falls out of this group - end of it!
     top_20_pct = int(len(df) / 5)
     portfolio = df.query("gap == False and cls_gt_ma == True").head(top_20_pct)
@@ -136,10 +140,12 @@ def create_portfolio(analysis_filename):
             portfolio.pct_alloc.sum(), portfolio.cost.sum()
         )
     )
-    utils.pickle_file(portfolio, portfolio_name)
+
+    persistor.save_portfolio(portfolio, index_name)
     utils.pickle_file(the_rest, the_rest_name)
     # dump best part to screen
-    utils.dump_file(portfolio_name, num=20)
+    # TODO break into its own method
+    utils.dump_file("portfolio-analysis-" + index_name + ".p", num=20)
 
 
 def usage():
@@ -159,12 +165,15 @@ if "__main__" == __name__:
         usage()
         exit(0)
 
+
+    # TODO make persister configurable at runtime
+    persistor_from_cfg = PicklePersistor()
     # indices = [ 'nasdaq' ,'sp500', 'dow']
     indices = ["sp500"]
     if pull:
-        [index_to_df(idx) for idx in indices]
+        [index_to_df(index_name, persistor_from_cfg) for index_name in indices]
     if analyze:
-        [index_df_to_analysis(idx) for idx in indices]
+        [index_df_to_analysis(index_name,persistor_from_cfg) for index_name in indices]
 
 # notes
 
