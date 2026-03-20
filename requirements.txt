@@ -34,7 +34,7 @@ tzdata==2025.2
 urllib3==1.26.20
 w3lib==2.3.1
 websockets==10.4
-yahoo_fin @ file:///home/jzendle/Projects/yahoo_fin
+yahoo_fin @ file:///Users/jzendle/Projects/yahoo_fin
 zipp==3.23.0
 
 yahoo-fin
