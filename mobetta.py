@@ -1,10 +1,11 @@
-import stockapi
-import utils
-import regression
-import pandas as pd
 import logging as l
 from concurrent.futures.thread import ThreadPoolExecutor
 
+import pandas as pd
+
+import regression
+import stockapi
+import utils
 from persist import PicklePersistor
 
 # initialize logging
@@ -17,7 +18,7 @@ l.basicConfig(
 log = l.getLogger("main")
 
 
-def index_df_to_analysis(idx_name,persistor):
+def index_df_to_analysis(idx_name, persistor):
 
     df = persistor.load_index(idx_name)
 
@@ -38,7 +39,9 @@ def index_df_to_analysis(idx_name,persistor):
                 + " days of data"
             )
             continue
-        rank, current_close, vol, current_above_ma, gap = regression.get_stats(ticker_df)
+        rank, current_close, vol, current_above_ma, gap = regression.get_stats(
+            ticker_df
+        )
         results_list.append(
             {
                 "ticker": ticker,
@@ -53,13 +56,14 @@ def index_df_to_analysis(idx_name,persistor):
     results_df = utils.new_analysis_df(results_list)
     results_df = results_df.sort_values(by=["rank"], ascending=False)
 
-    persistor.save_analysis(results_df,idx_name)
+    persistor.save_analysis(results_df, idx_name)
 
-    create_portfolio(idx_name,persistor)
+    create_portfolio(idx_name, persistor)
 
     return results_df
 
 
+# synchronous calls to yahoo finance - slower but useful for debugging
 def index_to_df_sync(index_name):
     log.info("retrieving data for index: " + index_name)
     f_name = index_name + ".p"
@@ -116,16 +120,15 @@ def index_to_df(index_name, persistor):
     return results_df
 
 
-def create_portfolio(index_name,persistor):
+def create_portfolio(index_name, persistor):
     the_rest_name = "not-portfolio-analysis-" + index_name + ".p"
-
 
     df = persistor.load_analysis(index_name)
     # keep the best 20% of the index - if a currently held stock falls out of this group - end of it!
     top_20_pct = int(len(df) / 5)
     portfolio = df.query("gap == False and cls_gt_ma == True").head(top_20_pct)
     the_rest = df[
-        df.ticker.isin(portfolio.ticker) == False
+        df.ticker.isin(portfolio.ticker) == False  # noqa: E712
     ]  # keep track of ones not in portfolio too
 
     num_assets = 20
@@ -165,7 +168,6 @@ if "__main__" == __name__:
         usage()
         exit(0)
 
-
     # TODO make persister configurable at runtime
     persistor_from_cfg = PicklePersistor()
     # indices = [ 'nasdaq' ,'sp500', 'dow']
@@ -173,7 +175,7 @@ if "__main__" == __name__:
     if pull:
         [index_to_df(index_name, persistor_from_cfg) for index_name in indices]
     if analyze:
-        [index_df_to_analysis(index_name,persistor_from_cfg) for index_name in indices]
+        [index_df_to_analysis(index_name, persistor_from_cfg) for index_name in indices]
 
 # notes
 
