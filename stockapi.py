@@ -1,6 +1,7 @@
 from yahoo_fin import stock_info as si
 import datetime
 import re
+import pandas as pd
 import logging as l
 
 log = l.getLogger("stockapi")
@@ -10,13 +11,19 @@ def get_ticker_live(ticker):
     return si.get_live_price(ticker)
 
 
-def get_ticker_df(ticker, def_days=90):
+def get_ticker_df(ticker: str, def_days: int = 90) -> pd.DataFrame | pd.Series | None:
     days = def_days * 7 / 5  # convert into number of trading days
     before = datetime.datetime.today() - datetime.timedelta(days=days)
     df = None
     try:
         # replace dot with dash - only occurs for BRK.B and BF.B
-        ticker = re.sub(pattern=r"([a-z])\.([a-z])", repl=r"\1-\2", string=ticker, count=0, flags=re.IGNORECASE)
+        ticker = re.sub(
+            pattern=r"([a-z])\.([a-z])",
+            repl=r"\1-\2",
+            string=ticker,
+            count=0,
+            flags=re.IGNORECASE,
+        )
         df = si.get_data(ticker, start_date=before)
     except Exception as e:
         log.info(f"Exception {e} getting data for {ticker}")
