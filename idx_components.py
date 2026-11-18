@@ -28,8 +28,10 @@ def _get_components(url: str) -> list[str]:
 
     req = urllib.request.Request(url, headers=hdr)
 
-    pattern = 'symbol:"(?P<ticker>[A-Z]+)"'
-
+    # there is a js data array in this page that contains the index components
+    # there are also a few ETF values that we will exclude from the results
+    pattern = 'symbol:"(?P<ticker>[A-Z]+)"'  # magic incantation to pull ticker from js array elem 'symbol' with re named group `ticker`
+    exclude = ["QQQ", "SPY", "DIA"]  # these are index funds so exclude
     # pattern = '<span class="heatmap-symbol [-0-9a-z]+">(?P<ticker>[A-Z]+)</span>'
 
     with urllib.request.urlopen(req) as response:
@@ -38,11 +40,14 @@ def _get_components(url: str) -> list[str]:
 
     ret = []
 
-    exclude = ["QQQ", "SPY", "DIA"]
     for match in re.finditer(pattern, html_content):
-        ticker = match.groupdict()["ticker"]
-        if ticker not in exclude:
-            ret.append(ticker)
+        ticker = match.groupdict()["ticker"]  # re named group as in re above
+        ret.append(ticker)
+
+    try:
+        ret.remove(exclude)
+    except ValueError:
+        pass
 
     return ret
 
