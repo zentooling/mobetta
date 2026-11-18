@@ -137,7 +137,8 @@ def do_allocation(df, num_assets):
     inv_vol = 1 / df["volatility"]
     df["pct_alloc"] = inv_vol[:num_assets] / inv_vol[:num_assets].sum()
     # df['num_shares'] = 1 / df['volatility']
-    df["cost"] = 1000 * df.pct_alloc
+    portfolio_size = 100000
+    df["cost"] = portfolio_size * df.pct_alloc
     # perform allocation for only the first 20 entries - our portfolio
     # df['pct_alloc'] = 100 * df['cost'][:num_assets] / df['cost'][:num_assets].sum()
     df["num_shares"] = df.cost / df.close
